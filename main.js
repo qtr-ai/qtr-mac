@@ -1,17 +1,16 @@
-const { app, BrowserWindow, Menu, nativeTheme, shell } = require("electron");
+const { app, BrowserWindow, Menu, ipcMain, nativeTheme, shell } = require("electron");
+const crypto = require("crypto");
 const fs = require("fs");
 const path = require("path");
 
 const START_URL = process.env.QTR_URL || "https://app.qtr.ai";
 // qtr.ai itself is the marketing site; only the app opens in the window.
 const APP_ORIGINS = new Set([new URL(START_URL).origin, "https://app.qtr.ai"]);
-// Firebase's Google sign-in opens a popup through these hosts and posts the result back to the opener.
-const AUTH_HOSTS = [/^accounts\.google\.com$/, /^accounts\.youtube\.com$/, /^apis\.google\.com$/, /\.firebaseapp\.com$/, /\.web\.app$/];
-
-// Google refuses sign-in from browsers that announce themselves as embedded, so drop the Electron and app tokens.
-app.userAgentFallback = app.userAgentFallback
-  .replace(/\sElectron\/\S+/, "")
-  .replace(new RegExp(`\\s${app.getName()}\\/\\S+`), "");
+// Firebase's popup hosts. Google refuses sign-in inside an embedded browser, so new web builds sign in through the
+// default browser instead (see startSignIn); this only keeps an older web build's popup from opening a blank tab.
+const AUTH_HOSTS = [/^accounts\.google\.com$/, /^apis\.google\.com$/, /\.firebaseapp\.com$/, /\.web\.app$/];
+const PROTOCOL = "qtr";
+const SIGN_IN_TTL_MS = 10 * 60 * 1000;
 
 const stateFile = () => path.join(app.getPath("userData"), "window-state.json");
 const readState = () => {
@@ -31,6 +30,38 @@ const isAuthUrl = url => {
 };
 
 let mainWindow = null;
+let pendingSignIn = null; // { state, expires }
+let queuedUrl = null;
+
+const startSignIn = () => {
+  const state = crypto.randomBytes(16).toString("hex");
+  pendingSignIn = { state, expires: Date.now() + SIGN_IN_TTL_MS };
+  shell.openExternal(`${new URL(START_URL).origin}/desktop-sign-in?state=${state}`);
+};
+
+// The browser page hands the Google credential back as qtr://auth?state=…&id_token=…&access_token=….
+// Only a state this app just issued is accepted, once, so another page can't sign the app into someone else's account.
+const handleProtocolUrl = url => {
+  if (!mainWindow) { queuedUrl = url; return; }
+  let parsed;
+  try { parsed = new URL(url); } catch { return; }
+  if (parsed.protocol !== `${PROTOCOL}:` || parsed.hostname !== "auth") return;
+  const pending = pendingSignIn;
+  pendingSignIn = null;
+  if (mainWindow.isMinimized()) mainWindow.restore();
+  mainWindow.show();
+  mainWindow.focus();
+  if (!pending || pending.expires < Date.now() || parsed.searchParams.get("state") !== pending.state) {
+    if (pending) mainWindow.webContents.send("qtr:sign-in-result", { error: "That sign-in has expired. Try again." });
+    return;
+  }
+  const idToken = parsed.searchParams.get("id_token");
+  if (!idToken) {
+    mainWindow.webContents.send("qtr:sign-in-result", { error: "Sign-in didn't finish. Try again." });
+    return;
+  }
+  mainWindow.webContents.send("qtr:sign-in-result", { idToken, accessToken: parsed.searchParams.get("access_token") || undefined });
+};
 
 const createWindow = () => {
   const saved = readState();
@@ -44,7 +75,7 @@ const createWindow = () => {
     title: "QTR",
     backgroundColor: "#2b2c22",
     show: false,
-    webPreferences: { contextIsolation: true, sandbox: true, spellcheck: true },
+    webPreferences: { contextIsolation: true, sandbox: true, spellcheck: true, preload: path.join(__dirname, "preload.js") },
   });
   if (saved.maximized) mainWindow.maximize();
 
@@ -71,6 +102,7 @@ const createWindow = () => {
   });
 
   mainWindow.loadURL(START_URL);
+  if (queuedUrl) { const url = queuedUrl; queuedUrl = null; mainWindow.webContents.once("did-finish-load", () => handleProtocolUrl(url)); }
 };
 
 const buildMenu = () => {
@@ -105,10 +137,24 @@ const buildMenu = () => {
   Menu.setApplicationMenu(Menu.buildFromTemplate(template));
 };
 
+if (process.defaultApp && process.argv.length >= 2) {
+  app.setAsDefaultProtocolClient(PROTOCOL, process.execPath, [path.resolve(process.argv[1])]);
+} else {
+  app.setAsDefaultProtocolClient(PROTOCOL);
+}
+app.on("open-url", (event, url) => { event.preventDefault(); handleProtocolUrl(url); });
+
+ipcMain.handle("qtr:start-sign-in", event => {
+  if (!isAppUrl(event.senderFrame?.url ?? "")) return;
+  startSignIn();
+});
+
 if (!app.requestSingleInstanceLock()) {
   app.quit();
 } else {
-  app.on("second-instance", () => {
+  app.on("second-instance", (_event, argv) => {
+    const url = argv.find(a => a.startsWith(`${PROTOCOL}://`));
+    if (url) handleProtocolUrl(url);
     if (!mainWindow) return;
     if (mainWindow.isMinimized()) mainWindow.restore();
     mainWindow.focus();

@@ -15,6 +15,7 @@
     "icon": "build/icon.png",
     "files": [
       "main.js",
+      "preload.js",
       "package.json"
     ],
     "mac": {
@@ -36,7 +37,15 @@
         }
       ],
       "identity": null
-    }
+    },
+    "protocols": [
+      {
+        "name": "QTR",
+        "schemes": [
+          "qtr"
+        ]
+      }
+    ]
   },
   "devDependencies": {
     "electron": "^41.7.1",
