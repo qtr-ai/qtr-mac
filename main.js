@@ -162,6 +162,8 @@ if (!app.requestSingleInstanceLock()) {
 
   app.whenReady().then(() => {
     nativeTheme.themeSource = "dark";
+    // A packaged app gets its icon from icon.icns; running from source would otherwise show Electron's.
+    if (!app.isPackaged) app.dock?.setIcon(path.join(__dirname, "build", "icon.png"));
     buildMenu();
     createWindow();
     app.on("activate", () => {

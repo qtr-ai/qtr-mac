@@ -12,7 +12,7 @@
   "build": {
     "appId": "ai.qtr.desktop",
     "productName": "QTR",
-    "icon": "build/icon.png",
+    "icon": "build/icon.icns",
     "files": [
       "main.js",
       "preload.js",
