@@ -2,8 +2,9 @@ const { app, BrowserWindow, Menu, nativeTheme, shell } = require("electron");
 const fs = require("fs");
 const path = require("path");
 
-const START_URL = process.env.QTR_URL || "https://qtr.ai";
-const APP_ORIGINS = new Set([new URL(START_URL).origin, "https://qtr.ai", "https://app.qtr.ai"]);
+const START_URL = process.env.QTR_URL || "https://app.qtr.ai";
+// qtr.ai itself is the marketing site; only the app opens in the window.
+const APP_ORIGINS = new Set([new URL(START_URL).origin, "https://app.qtr.ai"]);
 // Firebase's Google sign-in opens a popup through these hosts and posts the result back to the opener.
 const AUTH_HOSTS = [/^accounts\.google\.com$/, /^accounts\.youtube\.com$/, /^apis\.google\.com$/, /\.firebaseapp\.com$/, /\.web\.app$/];
 
