@@ -7,7 +7,8 @@
   "private": true,
   "scripts": {
     "start": "electron .",
-    "dist": "electron-builder --mac dmg zip"
+    "dist": "electron-builder --mac --arm64 -c.mac.identity=null -c.mac.notarize=false --publish never",
+    "release": "electron-builder --mac --publish always"
   },
   "build": {
     "appId": "ai.qtr.desktop",
@@ -16,6 +17,7 @@
     "files": [
       "main.js",
       "preload.js",
+      "updater.js",
       "package.json"
     ],
     "mac": {
@@ -36,7 +38,9 @@
           ]
         }
       ],
-      "identity": null
+      "hardenedRuntime": true,
+      "gatekeeperAssess": false,
+      "notarize": true
     },
     "protocols": [
       {
@@ -45,10 +49,21 @@
           "qtr"
         ]
       }
+    ],
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "qtr-ai",
+        "repo": "qtr-mac",
+        "releaseType": "release"
+      }
     ]
   },
   "devDependencies": {
     "electron": "^41.7.1",
     "electron-builder": "^26.15.3"
+  },
+  "dependencies": {
+    "electron-updater": "^6.8.9"
   }
 }

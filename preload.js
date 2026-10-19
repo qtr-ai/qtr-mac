@@ -9,4 +9,11 @@ contextBridge.exposeInMainWorld("qtrDesktop", {
     ipcRenderer.on("qtr:sign-in-result", listener);
     return () => ipcRenderer.removeListener("qtr:sign-in-result", listener);
   },
+  onUpdateReady: cb => {
+    const listener = (_event, update) => cb(update);
+    ipcRenderer.on("qtr:update-ready", listener);
+    ipcRenderer.send("qtr:update-listening");
+    return () => ipcRenderer.removeListener("qtr:update-ready", listener);
+  },
+  restartToUpdate: () => ipcRenderer.invoke("qtr:restart-to-update"),
 });

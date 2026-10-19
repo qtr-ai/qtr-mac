@@ -2,6 +2,7 @@ const { app, BrowserWindow, Menu, dialog, ipcMain, nativeTheme, shell } = requir
 const crypto = require("crypto");
 const fs = require("fs");
 const path = require("path");
+const { setupUpdates, pageReloading, checkForUpdatesNow } = require("./updater");
 
 const START_URL = process.env.QTR_URL || "https://app.qtr.ai";
 // qtr.ai itself is the marketing site; only the app opens in the window.
@@ -97,6 +98,10 @@ const createWindow = () => {
 
   // The desk asks before leaving with unsaved changes (beforeunload). Electron cancels silently unless we ask,
   // which made Reload and Quit do nothing.
+  mainWindow.webContents.on("did-start-navigation", details => {
+    if (details.isMainFrame && !details.isSameDocument) pageReloading();
+  });
+
   mainWindow.webContents.on("will-prevent-unload", event => {
     const choice = dialog.showMessageBoxSync(mainWindow, {
       type: "question",
@@ -121,7 +126,21 @@ const createWindow = () => {
 
 const buildMenu = () => {
   const template = [
-    { role: "appMenu" },
+    {
+      label: app.name,
+      submenu: [
+        { role: "about" },
+        { label: "Check for Updates…", click: () => checkForUpdatesNow() },
+        { type: "separator" },
+        { role: "services" },
+        { type: "separator" },
+        { role: "hide" },
+        { role: "hideOthers" },
+        { role: "unhide" },
+        { type: "separator" },
+        { role: "quit" },
+      ],
+    },
     { role: "editMenu" },
     {
       label: "View",
@@ -180,6 +199,7 @@ if (!app.requestSingleInstanceLock()) {
     if (!app.isPackaged) app.dock?.setIcon(path.join(__dirname, "build", "icon.png"));
     buildMenu();
     createWindow();
+    setupUpdates(() => mainWindow);
     app.on("activate", () => {
       if (!mainWindow) createWindow();
       else mainWindow.show();
