@@ -1,4 +1,4 @@
-const { app, BrowserWindow, Menu, ipcMain, nativeTheme, shell } = require("electron");
+const { app, BrowserWindow, Menu, dialog, ipcMain, nativeTheme, shell } = require("electron");
 const crypto = require("crypto");
 const fs = require("fs");
 const path = require("path");
@@ -93,6 +93,20 @@ const createWindow = () => {
     }
     shell.openExternal(url);
     return { action: "deny" };
+  });
+
+  // The desk asks before leaving with unsaved changes (beforeunload). Electron cancels silently unless we ask,
+  // which made Reload and Quit do nothing.
+  mainWindow.webContents.on("will-prevent-unload", event => {
+    const choice = dialog.showMessageBoxSync(mainWindow, {
+      type: "question",
+      buttons: ["Leave", "Stay"],
+      defaultId: 1,
+      cancelId: 1,
+      message: "Leave without saving?",
+      detail: "This desk has changes you haven't saved.",
+    });
+    if (choice === 0) event.preventDefault();
   });
 
   mainWindow.webContents.on("will-navigate", (event, url) => {
