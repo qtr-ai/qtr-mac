@@ -20,8 +20,7 @@ App menu → Check for Updates… checks by hand.
 
 To release:
 1. Bump `version` in package.json.
-2. `GH_TOKEN=$(gh auth token) APPLE_API_KEY=/path/AuthKey_XXXX.p8 APPLE_API_KEY_ID=XXXX APPLE_API_ISSUER=<issuer-id> npm run release`
-   — builds arm64 + x64, signs with the Developer ID Application certificate in the keychain, notarizes, and
+2. `npm run release` — reads the App Store Connect key from `~/.secrets` (override with `QTR_ASC_KEY_JSON` / `QTR_ASC_P8`), builds arm64 + x64, signs with the Developer ID Application certificate in the keychain, notarizes, and
    publishes the release with `latest-mac.yml`, which running apps check.
 
 `npm run dist` makes an unsigned arm64 build for local testing (it can't auto-update).

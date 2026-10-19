@@ -8,7 +8,7 @@
   "scripts": {
     "start": "electron .",
     "dist": "electron-builder --mac --arm64 -c.mac.identity=null -c.mac.notarize=false --publish never",
-    "release": "electron-builder --mac --publish always"
+    "release": "scripts/release.sh"
   },
   "build": {
     "appId": "ai.qtr.desktop",
