@@ -75,10 +75,15 @@ const createWindow = () => {
     minHeight: 600,
     title: "QTR",
     backgroundColor: "#2b2c22",
+    titleBarStyle: "hiddenInset",
+    trafficLightPosition: { x: 18, y: 16 },
     show: false,
     webPreferences: { contextIsolation: true, sandbox: true, spellcheck: true, preload: path.join(__dirname, "preload.js") },
   });
   if (saved.maximized) mainWindow.maximize();
+
+  mainWindow.on("enter-full-screen", () => mainWindow?.webContents.send("qtr:full-screen", true));
+  mainWindow.on("leave-full-screen", () => mainWindow?.webContents.send("qtr:full-screen", false));
 
   mainWindow.once("ready-to-show", () => mainWindow.show());
   mainWindow.on("close", () => writeState(mainWindow));

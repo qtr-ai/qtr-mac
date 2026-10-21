@@ -3,6 +3,13 @@ const { contextBridge, ipcRenderer } = require("electron");
 // The web app (app.qtr.ai) looks for window.qtrDesktop and, when it's there, signs in through the default browser.
 contextBridge.exposeInMainWorld("qtrDesktop", {
   isDesktop: true,
+  titleBar: "inset",
+  isFullScreen: () => ipcRenderer.invoke("qtr:is-full-screen"),
+  onFullScreenChange: cb => {
+    const listener = (_event, full) => cb(full);
+    ipcRenderer.on("qtr:full-screen", listener);
+    return () => ipcRenderer.removeListener("qtr:full-screen", listener);
+  },
   startGoogleSignIn: () => ipcRenderer.invoke("qtr:start-sign-in"),
   onSignInResult: cb => {
     const listener = (_event, result) => cb(result);
