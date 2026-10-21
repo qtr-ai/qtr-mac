@@ -182,6 +182,16 @@ ipcMain.handle("qtr:start-sign-in", event => {
   startSignIn();
 });
 
+// Google's contacts consent page won't render inside the app window, so the web app asks for it in the default browser.
+ipcMain.handle("qtr:open-external", async (event, url) => {
+  if (!isAppUrl(event.senderFrame?.url ?? "")) return;
+  if (typeof url !== "string") return;
+  let parsed;
+  try { parsed = new URL(url); } catch { return; }
+  if (parsed.protocol !== "https:" || parsed.hostname !== "accounts.google.com") return;
+  await shell.openExternal(parsed.href);
+});
+
 if (!app.requestSingleInstanceLock()) {
   app.quit();
 } else {
