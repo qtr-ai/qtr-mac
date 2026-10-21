@@ -187,6 +187,11 @@ ipcMain.handle("qtr:start-sign-in", event => {
   startSignIn();
 });
 
+ipcMain.handle("qtr:is-full-screen", event => {
+  if (!isAppUrl(event.senderFrame?.url ?? "")) return false;
+  return mainWindow?.isFullScreen() ?? false;
+});
+
 if (!app.requestSingleInstanceLock()) {
   app.quit();
 } else {
