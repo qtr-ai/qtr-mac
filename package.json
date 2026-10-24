@@ -1,14 +1,15 @@
 {
   "name": "qtr-mac",
   "productName": "QTR",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "QTR, a desk for a beautiful quarter, as a Mac app",
   "main": "main.js",
   "private": true,
   "scripts": {
     "start": "electron .",
     "dist": "electron-builder --mac --arm64 -c.mac.identity=null -c.mac.notarize=false --publish never",
-    "release": "scripts/release.sh"
+    "release": "scripts/release.sh",
+    "test": "node --test"
   },
   "build": {
     "appId": "ai.qtr.desktop",

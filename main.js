@@ -2,7 +2,7 @@ const { app, BrowserWindow, Menu, dialog, ipcMain, nativeTheme, shell } = requir
 const crypto = require("crypto");
 const fs = require("fs");
 const path = require("path");
-const { setupUpdates, pageReloading, checkForUpdatesNow } = require("./updater");
+const { setupUpdates, pageReloading, checkForUpdatesNow, isInstallingUpdate, notifyFinishingUpdate } = require("./updater");
 
 const START_URL = process.env.QTR_URL || "https://app.qtr.ai";
 // qtr.ai itself is the marketing site; only the app opens in the window.
@@ -213,7 +213,13 @@ if (!app.requestSingleInstanceLock()) {
     mainWindow.focus();
   });
 
-  app.whenReady().then(() => {
+  app.whenReady().then(async () => {
+    // Reopened while ShipIt is still installing: step aside, or it aborts the update. ShipIt reopens the app when done.
+    if (app.isPackaged && await isInstallingUpdate()) {
+      notifyFinishingUpdate();
+      setTimeout(() => app.exit(0), 300);
+      return;
+    }
     nativeTheme.themeSource = "dark";
     // A packaged app gets its icon from icon.icns; running from source would otherwise show Electron's.
     if (!app.isPackaged) app.dock?.setIcon(path.join(__dirname, "build", "icon.png"));
