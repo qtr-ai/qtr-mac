@@ -1,7 +1,7 @@
 {
   "name": "qtr-mac",
   "productName": "QTR",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "QTR, a desk for a beautiful quarter, as a Mac app",
   "main": "main.js",
   "private": true,
