@@ -9,6 +9,8 @@ Google refuses sign-in inside embedded browsers, so "Continue with Google" opens
 
 `npm run dist` makes a quick unsigned build for testing (the first time, right-click QTR.app → Open). Real releases are signed and notarized with `npm run release` (below).
 
+The web app can also call `window.qtrDesktop.openExternal(url)` to open Google's contacts consent page (`https://accounts.google.com/...` only) in your default browser.
+
 ## Updates
 
 Web changes need nothing: the app loads app.qtr.ai, so a web deploy reaches Mac users on their next load.

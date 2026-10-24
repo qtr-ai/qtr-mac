@@ -11,6 +11,7 @@ contextBridge.exposeInMainWorld("qtrDesktop", {
     return () => ipcRenderer.removeListener("qtr:full-screen", listener);
   },
   startGoogleSignIn: () => ipcRenderer.invoke("qtr:start-sign-in"),
+  openExternal: url => ipcRenderer.invoke("qtr:open-external", url),
   onSignInResult: cb => {
     const listener = (_event, result) => cb(result);
     ipcRenderer.on("qtr:sign-in-result", listener);
