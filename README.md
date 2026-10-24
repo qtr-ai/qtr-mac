@@ -5,9 +5,11 @@ A small native Mac app that opens the QTR app (https://app.qtr.ai) in its own wi
 - `npm start` runs it from source. `QTR_URL=http://localhost:4100 npm start` points it at a local dev server.
 - `npm run dist` builds `dist/QTR-<version>-arm64.dmg` and a `.zip`.
 
-Google refuses sign-in inside embedded browsers, so "Continue with Google" opens `app.qtr.ai/desktop-sign-in` in your default browser; after you sign in there, the page hands the Google credential back through a `qtr://auth` link with a one-time state the app issued, and the app finishes signing in. This needs the web app's desktop sign-in page (branch `feat/desktop-sign-in` in qtr-web-v4) deployed, or run against a local dev server with `QTR_URL`. Links that leave the app (including the qtr.ai marketing pages) open in your default browser. Window size and position are remembered.
+Google refuses sign-in inside embedded browsers, so "Continue with Google" opens `app.qtr.ai/desktop-sign-in` in your default browser; after you sign in there, the page hands the Google credential back through a `qtr://auth` link with a one-time state the app issued, and the app finishes signing in. This needs the web app's desktop sign-in page (branch `feat/desktop-sign-in` in qtr-web-v4) deployed, or run against a local dev server with `QTR_URL`. Links that leave the app (including the qtr.ai marketing pages) open in your default browser. Window size and position are remembered. The window has an inset title bar (traffic lights at 18,16): the web app draws its own 44px header and reads `window.qtrDesktop.titleBar`, `isFullScreen()` and `onFullScreenChange(cb)` to leave room for the window buttons.
 
-The build is unsigned. The first time, right-click QTR.app → Open. Signing and notarising needs a Developer ID certificate: set `mac.identity` in package.json and add notarisation.
+`npm run dist` makes a quick unsigned build for testing (the first time, right-click QTR.app → Open). Real releases are signed and notarized with `npm run release` (below).
+
+The web app can also call `window.qtrDesktop.openExternal(url)` to open Google's contacts consent page (`https://accounts.google.com/...` only) in your default browser.
 
 ## Updates
 

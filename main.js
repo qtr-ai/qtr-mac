@@ -75,10 +75,15 @@ const createWindow = () => {
     minHeight: 600,
     title: "QTR",
     backgroundColor: "#2b2c22",
+    titleBarStyle: "hiddenInset",
+    trafficLightPosition: { x: 18, y: 16 },
     show: false,
     webPreferences: { contextIsolation: true, sandbox: true, spellcheck: true, preload: path.join(__dirname, "preload.js") },
   });
   if (saved.maximized) mainWindow.maximize();
+
+  mainWindow.on("enter-full-screen", () => mainWindow?.webContents.send("qtr:full-screen", true));
+  mainWindow.on("leave-full-screen", () => mainWindow?.webContents.send("qtr:full-screen", false));
 
   mainWindow.once("ready-to-show", () => mainWindow.show());
   mainWindow.on("close", () => writeState(mainWindow));
@@ -180,6 +185,21 @@ app.on("open-url", (event, url) => { event.preventDefault(); handleProtocolUrl(u
 ipcMain.handle("qtr:start-sign-in", event => {
   if (!isAppUrl(event.senderFrame?.url ?? "")) return;
   startSignIn();
+});
+
+ipcMain.handle("qtr:is-full-screen", event => {
+  if (!isAppUrl(event.senderFrame?.url ?? "")) return false;
+  return mainWindow?.isFullScreen() ?? false;
+});
+
+// Google's contacts consent page won't render inside the app window, so the web app asks for it in the default browser.
+ipcMain.handle("qtr:open-external", async (event, url) => {
+  if (!isAppUrl(event.senderFrame?.url ?? "")) return;
+  if (typeof url !== "string") return;
+  let parsed;
+  try { parsed = new URL(url); } catch { return; }
+  if (parsed.protocol !== "https:" || parsed.hostname !== "accounts.google.com") return;
+  await shell.openExternal(parsed.href);
 });
 
 if (!app.requestSingleInstanceLock()) {
