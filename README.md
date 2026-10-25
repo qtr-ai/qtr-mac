@@ -11,6 +11,16 @@ Google refuses sign-in inside embedded browsers, so "Continue with Google" opens
 
 The web app can also call `window.qtrDesktop.openExternal(url)` to open Google's contacts consent page (`https://accounts.google.com/...` only) in your default browser.
 
+## QTR Dev
+
+QTR Dev is a second app for trying unreleased web builds. It sits beside QTR: its own bundle ID (`ai.qtr.desktop.dev`), Dock name and icon (the mark with a DEV tag), its own data folder (`~/Library/Application Support/QTR Dev`), so it keeps a separate sign-in and both can run at once. It never auto-updates; rebuild it when the Mac code changes.
+
+- `npm run dist:dev` builds the unsigned arm64 `dist/mac-arm64/QTR Dev.app` (and a `.dmg`) from `electron-builder.dev.js`, which takes the normal config and swaps the identity, icon and URL scheme and stamps `qtrFlavor: "dev"` into the packaged package.json. `npm run dist` and `npm run release` are unchanged.
+- `npm run start:dev` runs the dev flavor from source (`QTR_FLAVOR=dev`, ignored by packaged apps).
+- The **Server** menu picks what the window loads: Local (localhost:4100, the default) or dev.qtr.ai. The choice is saved in `server.json` in its data folder and switching reloads the window at that server's root. `QTR_URL` still overrides both.
+- Sign-in opens `<server>/desktop-sign-in?state=…&app=dev` in your default browser, and the page hands back through `qtr-dev://auth` (same one-time state check), so it never lands in the real QTR. This needs the web change that reads `app=dev` (branch `feat/desktop-dev-scheme` in qtr-web-v4) on that server.
+- `build/icon-dev.icns` and `build/icon-dev.png` come from `build/icon.png` via `python3 build/icon-src/make-dev-icon.py build/icon.png build/icon-dev.png`, then an iconset and `iconutil -c icns`.
+
 ## Updates
 
 Web changes need nothing: the app loads app.qtr.ai, so a web deploy reaches Mac users on their next load.

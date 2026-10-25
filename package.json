@@ -7,7 +7,9 @@
   "private": true,
   "scripts": {
     "start": "electron .",
+    "start:dev": "QTR_FLAVOR=dev electron .",
     "dist": "electron-builder --mac --arm64 -c.mac.identity=null -c.mac.notarize=false --publish never",
+    "dist:dev": "electron-builder --config electron-builder.dev.js --mac --arm64 --publish never",
     "release": "scripts/release.sh",
     "test": "node --test"
   },
@@ -19,6 +21,7 @@
       "main.js",
       "preload.js",
       "updater.js",
+      "flavor.js",
       "package.json"
     ],
     "mac": {
