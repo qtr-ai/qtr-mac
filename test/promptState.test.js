@@ -72,13 +72,13 @@ test("alertFor gives the exact shell copy", () => {
   });
 });
 
-test("choosing restart or reload hides the alert and keeps the pending update", () => {
+test("choosing restart or reload hides the alert, keeps the update pending and holds the same prompt for 4 hours", () => {
   const s = ready({ web: "abc1234", showing: true });
   const web = afterChoice(s, { kind: "web", build: "abc1234" }, 0, T0);
-  assert.deepStrictEqual(web, { state: { ...s, showing: false }, action: "reload" });
+  assert.deepStrictEqual(web, { state: { ...s, showing: false, laterKey: "web:abc1234", laterUntil: T0 + LATER_MS }, action: "reload" });
   const shellState = ready({ shell: "0.2.2", showing: true });
   assert.deepStrictEqual(afterChoice(shellState, { kind: "shell", version: "0.2.2" }, 0, T0), {
-    state: { ...shellState, showing: false },
+    state: { ...shellState, showing: false, laterKey: "shell:0.2.2", laterUntil: T0 + LATER_MS },
     action: "restart",
   });
 });
@@ -109,4 +109,24 @@ test("afterChoice does not mutate its input", () => {
 test("upToDateDetail names the app and web versions, web unknown when the page didn't answer", () => {
   assert.strictEqual(upToDateDetail("0.3.0", "a1b2c3d"), "QTR 0.3.0, web a1b2c3d");
   assert.strictEqual(upToDateDetail("0.3.0", null), "QTR 0.3.0, web unknown");
+});
+
+test("manual check bypasses the focus and quiet gates", () => {
+  const s = ready({ web: "abc1234", quiet: false, focused: false });
+  assert.strictEqual(nextPrompt(s, T0), null);
+  assert.deepStrictEqual(nextPrompt(s, T0, { manual: true }), { kind: "web", build: "abc1234" });
+});
+
+test("manual check never opens a second alert", () => {
+  assert.strictEqual(nextPrompt(ready({ web: "abc1234", showing: true }), T0, { manual: true }), null);
+});
+
+test("manual check ignores an active Later hold", () => {
+  const s = ready({ web: "abc1234", laterKey: "web:abc1234", laterUntil: T0 + LATER_MS });
+  assert.strictEqual(nextPrompt(s, T0), null);
+  assert.deepStrictEqual(nextPrompt(s, T0, { manual: true }), { kind: "web", build: "abc1234" });
+});
+
+test("manual check with nothing pending shows nothing", () => {
+  assert.strictEqual(nextPrompt(ready({ quiet: false }), T0, { manual: true }), null);
 });

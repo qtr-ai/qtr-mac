@@ -1,7 +1,7 @@
 const { app, dialog, ipcMain, Notification, shell } = require("electron");
 const { execFile } = require("child_process");
 const electronUpdater = require("electron-updater");
-const { RELEASE_NOTES_URL, LATER_MS, initialState, promptKey, nextPrompt, alertFor, afterChoice, upToDateDetail } = require("./promptState");
+const { RELEASE_NOTES_URL, initialState, promptKey, nextPrompt, alertFor, afterChoice, upToDateDetail } = require("./promptState");
 
 const CHECK_EVERY_MS = 4 * 60 * 60 * 1000;
 const WEB_CHECK_WAIT_MS = 5000;
@@ -39,19 +39,15 @@ const runAction = action => {
   else if (action === "whatsNew") shell.openExternal(RELEASE_NOTES_URL);
 };
 
-const maybePrompt = () => {
+const maybePrompt = (opts) => {
   const win = getWindow();
-  const prompt = win && nextPrompt(state, Date.now());
+  const prompt = win && nextPrompt(state, Date.now(), opts);
   if (!prompt) return;
   state = { ...state, showing: true };
   dialog.showMessageBox(win, { type: "info", ...alertFor(prompt) }).then(({ response }) => {
     const now = Date.now();
     const result = afterChoice(state, prompt, response, now);
     state = result.state;
-    // Reload and Restart were just chosen; don't ask again while the page is still blocked or the app is quitting.
-    if (result.action === "restart" || result.action === "reload") {
-      state = { ...state, laterKey: promptKey({ shell: prompt.version ?? null, web: prompt.build ?? null }), laterUntil: now + LATER_MS };
-    }
     runAction(result.action);
     maybePrompt();
   }).catch(() => {
@@ -83,7 +79,8 @@ const setupUpdates = (windowGetter, options = {}) => {
     const waiting = webCheck;
     webCheck = null;
     if (typeof result?.newer === "string" && result.newer) state = { ...state, web: result.newer };
-    waiting?.resolve();
+    if (waiting) waiting.resolve();
+    else maybePrompt();
   });
 
   if (!shellUpdates) return;
@@ -123,14 +120,12 @@ const checkForUpdatesNow = async () => {
       ? autoUpdater.checkForUpdates().then(result => result?.downloadPromise)
       : Promise.resolve();
     const [, shellResult] = await Promise.all([askPageToCheck(), shellCheck.then(() => null, err => err)]);
-    if (shellResult) {
-      dialog.showMessageBox(getWindow(), { type: "warning", message: "Couldn't check for updates", detail: String(shellResult?.message ?? shellResult) });
+    if (promptKey(state)) {
+      maybePrompt({ manual: true });
       return;
     }
-    if (promptKey(state)) {
-      const win = getWindow();
-      if (win) state = { ...state, focused: win.isFocused() };
-      maybePrompt();
+    if (shellResult) {
+      dialog.showMessageBox(getWindow(), { type: "warning", message: "Couldn't check for updates", detail: String(shellResult?.message ?? shellResult) });
       return;
     }
     dialog.showMessageBox(getWindow(), { type: "info", message: "You're up to date", detail: upToDateDetail(app.getVersion(), lastWebBuild) });

@@ -21,11 +21,12 @@ function keyOf(prompt) {
   return prompt.kind === "shell" ? `shell:${prompt.version}` : `web:${prompt.build}`;
 }
 
-function nextPrompt(s, now) {
-  if (s.showing || !s.focused || !s.quiet) return null;
+function nextPrompt(s, now, { manual = false } = {}) {
+  if (s.showing) return null;
+  if (!manual && (!s.focused || !s.quiet)) return null;
   const prompt = promptFor(s);
   if (!prompt) return null;
-  if (s.laterKey === promptKey(s) && now < s.laterUntil) return null;
+  if (!manual && s.laterKey === promptKey(s) && now < s.laterUntil) return null;
   return prompt;
 }
 
@@ -51,7 +52,8 @@ function alertFor(prompt) {
 function afterChoice(s, prompt, index, now) {
   const hidden = { ...s, showing: false };
   if (index === 0) {
-    return { state: hidden, action: prompt.kind === "shell" ? "restart" : "reload" };
+    // Chosen already: don't ask again while the page is still blocked or the app is quitting.
+    return { state: { ...hidden, laterKey: keyOf(prompt), laterUntil: now + LATER_MS }, action: prompt.kind === "shell" ? "restart" : "reload" };
   }
   if (index === 1) {
     return { state: { ...hidden, laterKey: keyOf(prompt), laterUntil: now + LATER_MS }, action: "later" };
