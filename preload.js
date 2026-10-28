@@ -17,11 +17,18 @@ contextBridge.exposeInMainWorld("qtrDesktop", {
     ipcRenderer.on("qtr:sign-in-result", listener);
     return () => ipcRenderer.removeListener("qtr:sign-in-result", listener);
   },
-  onUpdateReady: cb => {
-    const listener = (_event, update) => cb(update);
-    ipcRenderer.on("qtr:update-ready", listener);
-    ipcRenderer.send("qtr:update-listening");
-    return () => ipcRenderer.removeListener("qtr:update-ready", listener);
+  updateAlertsNative: true,
+  webUpdateReady: info => ipcRenderer.send("qtr:web-update-ready", info),
+  reportPromptQuiet: quiet => ipcRenderer.send("qtr:prompt-quiet", quiet),
+  onReloadRequested: cb => {
+    const listener = () => cb();
+    ipcRenderer.on("qtr:reload-requested", listener);
+    return () => ipcRenderer.removeListener("qtr:reload-requested", listener);
   },
-  restartToUpdate: () => ipcRenderer.invoke("qtr:restart-to-update"),
+  onCheckWebUpdate: cb => {
+    const listener = () => cb();
+    ipcRenderer.on("qtr:check-web", listener);
+    return () => ipcRenderer.removeListener("qtr:check-web", listener);
+  },
+  webCheckResult: result => ipcRenderer.send("qtr:web-check-result", result),
 });

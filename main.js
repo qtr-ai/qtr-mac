@@ -2,7 +2,8 @@ const { app, BrowserWindow, Menu, dialog, ipcMain, nativeTheme, shell } = requir
 const crypto = require("crypto");
 const fs = require("fs");
 const path = require("path");
-const { setupUpdates, pageReloading, checkForUpdatesNow, isInstallingUpdate, notifyFinishingUpdate } = require("./updater");
+const { setupUpdates, setFocused, pageReloading, checkForUpdatesNow, isInstallingUpdate, notifyFinishingUpdate } = require("./updater");
+const { RELEASE_NOTES_URL } = require("./promptState");
 const { flavorOf, SERVERS, serverOrigin, readServer, writeServer, signInUrl } = require("./flavor");
 
 const FLAVOR = flavorOf({ pkg: require("./package.json"), env: process.env, packaged: app.isPackaged });
@@ -101,6 +102,10 @@ const createWindow = () => {
   mainWindow.on("enter-full-screen", () => mainWindow?.webContents.send("qtr:full-screen", true));
   mainWindow.on("leave-full-screen", () => mainWindow?.webContents.send("qtr:full-screen", false));
 
+  mainWindow.on("focus", () => setFocused(true));
+  mainWindow.on("blur", () => setFocused(false));
+  setFocused(mainWindow.isFocused());
+
   mainWindow.once("ready-to-show", () => mainWindow.show());
   mainWindow.on("close", () => writeState(mainWindow));
   mainWindow.on("closed", () => { mainWindow = null; });
@@ -174,7 +179,8 @@ const buildMenu = () => {
       label: app.name,
       submenu: [
         { role: "about" },
-        ...(IS_DEV ? [] : [{ label: "Check for Updates…", click: () => checkForUpdatesNow() }]),
+        { label: "Check for Updates…", click: () => checkForUpdatesNow() },
+        { label: "What's New…", click: () => shell.openExternal(RELEASE_NOTES_URL) },
         { type: "separator" },
         { role: "services" },
         { type: "separator" },
@@ -265,8 +271,8 @@ if (!app.requestSingleInstanceLock()) {
     if (!app.isPackaged) app.dock?.setIcon(path.join(__dirname, "build", IS_DEV ? "icon-dev.png" : "icon.png"));
     buildMenu();
     createWindow();
-    // QTR Dev is rebuilt by hand and never auto-updates.
-    if (!IS_DEV) setupUpdates(() => mainWindow);
+    // QTR Dev is rebuilt by hand, so only the web prompts and the manual web check run there.
+    setupUpdates(() => mainWindow, { shellUpdates: !IS_DEV && app.isPackaged });
     app.on("activate", () => {
       if (!mainWindow) createWindow();
       else mainWindow.show();

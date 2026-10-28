@@ -62,4 +62,8 @@ function afterChoice(s, prompt, index, now) {
   throw new RangeError(`Unknown alert button index: ${index}`);
 }
 
-module.exports = { RELEASE_NOTES_URL, LATER_MS, initialState, promptKey, nextPrompt, alertFor, afterChoice };
+function upToDateDetail(shellVersion, webBuild) {
+  return `QTR ${shellVersion}, web ${webBuild || "unknown"}`;
+}
+
+module.exports = { upToDateDetail, RELEASE_NOTES_URL, LATER_MS, initialState, promptKey, nextPrompt, alertFor, afterChoice };

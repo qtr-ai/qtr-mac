@@ -1,6 +1,6 @@
 const test = require("node:test");
 const assert = require("node:assert");
-const { RELEASE_NOTES_URL, LATER_MS, initialState, promptKey, nextPrompt, alertFor, afterChoice } = require("../promptState");
+const { RELEASE_NOTES_URL, LATER_MS, initialState, promptKey, nextPrompt, alertFor, afterChoice, upToDateDetail } = require("../promptState");
 
 const ready = (over = {}) => ({ ...initialState(), focused: true, quiet: true, ...over });
 const T0 = 1_000_000_000_000;
@@ -104,4 +104,9 @@ test("afterChoice does not mutate its input", () => {
   const copy = JSON.stringify(s);
   afterChoice(s, { kind: "web", build: "abc1234" }, 1, T0);
   assert.strictEqual(JSON.stringify(s), copy);
+});
+
+test("upToDateDetail names the app and web versions, web unknown when the page didn't answer", () => {
+  assert.strictEqual(upToDateDetail("0.3.0", "a1b2c3d"), "QTR 0.3.0, web a1b2c3d");
+  assert.strictEqual(upToDateDetail("0.3.0", null), "QTR 0.3.0, web unknown");
 });
