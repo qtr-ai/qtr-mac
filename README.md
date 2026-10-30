@@ -20,6 +20,11 @@ the app checks at launch and every 4 hours, downloads quietly, then the desk sho
 with Restart to update / Later (a plain Mac alert if the web build predates that slip). It also installs on quit.
 App menu → Check for Updates… checks by hand.
 
+Restart to update shows an "Updating QTR" notification, quits, and Squirrel's ShipIt installs the new version and
+reopens QTR by itself, which takes a minute or two. Opening QTR during that time would make ShipIt abort the install,
+so if QTR finds this app's ShipIt running (started under 5 minutes ago) at launch, it says "Finishing an update" and
+quits without opening a window; an older ShipIt is treated as stuck and ignored. `npm test` covers the `ps` parsing.
+
 To release:
 1. Bump `version` in package.json.
 2. `npm run release` — reads the App Store Connect key from `~/.secrets` (override with `QTR_ASC_KEY_JSON` / `QTR_ASC_P8`), builds arm64 + x64, signs with the Developer ID Application certificate in the keychain, notarizes, and
