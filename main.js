@@ -3,14 +3,30 @@ const crypto = require("crypto");
 const fs = require("fs");
 const path = require("path");
 const { setupUpdates, pageReloading, checkForUpdatesNow, isInstallingUpdate, notifyFinishingUpdate } = require("./updater");
+const { flavorOf, SERVERS, serverOrigin, readServer, writeServer, signInUrl } = require("./flavor");
 
-const START_URL = process.env.QTR_URL || "https://app.qtr.ai";
+const FLAVOR = flavorOf({ pkg: require("./package.json"), env: process.env, packaged: app.isPackaged });
+const IS_DEV = FLAVOR === "dev";
+const APP_NAME = IS_DEV ? "QTR Dev" : "QTR";
+// Its own userData keeps QTR Dev's sign-in, window state and single-instance lock apart from QTR's, even from source.
+if (IS_DEV) {
+  app.setName(APP_NAME);
+  app.setPath("userData", path.join(app.getPath("appData"), APP_NAME));
+}
+
+const serverFile = () => path.join(app.getPath("userData"), "server.json");
+let serverId = IS_DEV ? readServer(serverFile()) : null;
+const startUrl = () => process.env.QTR_URL || (IS_DEV ? serverOrigin(serverId) : "https://app.qtr.ai");
+const currentOrigin = () => new URL(startUrl()).origin;
 // qtr.ai itself is the marketing site; only the app opens in the window.
-const APP_ORIGINS = new Set([new URL(START_URL).origin, "https://app.qtr.ai"]);
+const APP_ORIGINS = new Set([
+  currentOrigin(),
+  ...(IS_DEV ? SERVERS.map(s => s.origin) : ["https://app.qtr.ai"]),
+]);
 // Firebase's popup hosts. Google refuses sign-in inside an embedded browser, so new web builds sign in through the
 // default browser instead (see startSignIn); this only keeps an older web build's popup from opening a blank tab.
 const AUTH_HOSTS = [/^accounts\.google\.com$/, /^apis\.google\.com$/, /\.firebaseapp\.com$/, /\.web\.app$/];
-const PROTOCOL = "qtr";
+const PROTOCOL = IS_DEV ? "qtr-dev" : "qtr";
 const SIGN_IN_TTL_MS = 10 * 60 * 1000;
 
 const stateFile = () => path.join(app.getPath("userData"), "window-state.json");
@@ -37,10 +53,10 @@ let queuedUrl = null;
 const startSignIn = () => {
   const state = crypto.randomBytes(16).toString("hex");
   pendingSignIn = { state, expires: Date.now() + SIGN_IN_TTL_MS };
-  shell.openExternal(`${new URL(START_URL).origin}/desktop-sign-in?state=${state}`);
+  shell.openExternal(signInUrl(currentOrigin(), state, FLAVOR));
 };
 
-// The browser page hands the Google credential back as qtr://auth?state=…&id_token=…&access_token=….
+// The browser page hands the Google credential back as qtr://auth?state=…&id_token=…&access_token=… (qtr-dev:// for QTR Dev).
 // Only a state this app just issued is accepted, once, so another page can't sign the app into someone else's account.
 const handleProtocolUrl = url => {
   if (!mainWindow) { queuedUrl = url; return; }
@@ -73,7 +89,7 @@ const createWindow = () => {
     y: saved.y,
     minWidth: 900,
     minHeight: 600,
-    title: "QTR",
+    title: APP_NAME,
     backgroundColor: "#2b2c22",
     titleBarStyle: "hiddenInset",
     trafficLightPosition: { x: 18, y: 16 },
@@ -125,9 +141,32 @@ const createWindow = () => {
     shell.openExternal(url);
   });
 
-  mainWindow.loadURL(START_URL);
+  mainWindow.loadURL(startUrl());
   if (queuedUrl) { const url = queuedUrl; queuedUrl = null; mainWindow.webContents.once("did-finish-load", () => handleProtocolUrl(url)); }
 };
+
+const switchServer = id => {
+  if (id === serverId) return;
+  serverId = id;
+  pendingSignIn = null;
+  writeServer(serverFile(), id);
+  if (mainWindow) mainWindow.loadURL(`${serverOrigin(id)}/`);
+  else createWindow();
+};
+
+const serverMenu = () => ({
+  label: "Server",
+  submenu: [
+    ...(process.env.QTR_URL ? [{ label: `QTR_URL: ${process.env.QTR_URL}`, enabled: false }, { type: "separator" }] : []),
+    ...SERVERS.map(s => ({
+      label: s.label,
+      type: "radio",
+      checked: s.id === serverId,
+      enabled: !process.env.QTR_URL,
+      click: () => switchServer(s.id),
+    })),
+  ],
+});
 
 const buildMenu = () => {
   const template = [
@@ -135,7 +174,7 @@ const buildMenu = () => {
       label: app.name,
       submenu: [
         { role: "about" },
-        { label: "Check for Updates…", click: () => checkForUpdatesNow() },
+        ...(IS_DEV ? [] : [{ label: "Check for Updates…", click: () => checkForUpdatesNow() }]),
         { type: "separator" },
         { role: "services" },
         { type: "separator" },
@@ -170,6 +209,7 @@ const buildMenu = () => {
         { label: "Open in Browser", click: () => mainWindow && shell.openExternal(mainWindow.webContents.getURL()) },
       ],
     },
+    ...(IS_DEV ? [serverMenu()] : []),
     { role: "windowMenu" },
   ];
   Menu.setApplicationMenu(Menu.buildFromTemplate(template));
@@ -215,17 +255,18 @@ if (!app.requestSingleInstanceLock()) {
 
   app.whenReady().then(async () => {
     // Reopened while ShipIt is still installing: step aside, or it aborts the update. ShipIt reopens the app when done.
-    if (app.isPackaged && await isInstallingUpdate()) {
+    if (!IS_DEV && app.isPackaged && await isInstallingUpdate()) {
       notifyFinishingUpdate();
       setTimeout(() => app.exit(0), 300);
       return;
     }
     nativeTheme.themeSource = "dark";
     // A packaged app gets its icon from icon.icns; running from source would otherwise show Electron's.
-    if (!app.isPackaged) app.dock?.setIcon(path.join(__dirname, "build", "icon.png"));
+    if (!app.isPackaged) app.dock?.setIcon(path.join(__dirname, "build", IS_DEV ? "icon-dev.png" : "icon.png"));
     buildMenu();
     createWindow();
-    setupUpdates(() => mainWindow);
+    // QTR Dev is rebuilt by hand and never auto-updates.
+    if (!IS_DEV) setupUpdates(() => mainWindow);
     app.on("activate", () => {
       if (!mainWindow) createWindow();
       else mainWindow.show();
