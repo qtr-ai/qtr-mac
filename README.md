@@ -11,14 +11,33 @@ Google refuses sign-in inside embedded browsers, so "Continue with Google" opens
 
 The web app can also call `window.qtrDesktop.openExternal(url)` to open Google's contacts consent page (`https://accounts.google.com/...` only) in your default browser.
 
+## QTR Dev
+
+QTR Dev is a second app for trying unreleased web builds. It sits beside QTR: its own bundle ID (`ai.qtr.desktop.dev`), Dock name and icon (the mark with a DEV tag), its own data folder (`~/Library/Application Support/QTR Dev`), so it keeps a separate sign-in and both can run at once. It never auto-updates the app itself (rebuild it when the Mac code changes), but it still shows the web update alert and App menu → Check for Updates… checks the web build.
+
+- `npm run dist:dev` builds the unsigned arm64 `dist/mac-arm64/QTR Dev.app` (and a `.dmg`) from `electron-builder.dev.js`, which takes the normal config and swaps the identity, icon and URL scheme and stamps `qtrFlavor: "dev"` into the packaged package.json. `npm run dist` and `npm run release` are unchanged.
+- `npm run start:dev` runs the dev flavor from source (`QTR_FLAVOR=dev`, ignored by packaged apps).
+- The **Server** menu picks what the window loads: Local (localhost:4100, the default) or dev.qtr.ai. The choice is saved in `server.json` in its data folder and switching reloads the window at that server's root. `QTR_URL` still overrides both.
+- Sign-in opens `<server>/desktop-sign-in?state=…&app=dev` in your default browser, and the page hands back through `qtr-dev://auth` (same one-time state check), so it never lands in the real QTR. This needs the web change that reads `app=dev` (branch `feat/desktop-dev-scheme` in qtr-web-v4) on that server.
+- `build/icon-dev.icns` and `build/icon-dev.png` come from `build/icon.png` via `python3 build/icon-src/make-dev-icon.py build/icon.png build/icon-dev.png`, then an iconset and `iconutil -c icns`.
+
 ## Updates
 
-Web changes need nothing: the app loads app.qtr.ai, so a web deploy reaches Mac users on their next load.
+A web deploy reaches Mac users on their next load, and now the app tells them. The page checks for a newer build and,
+when one is out, QTR shows a standard Mac alert: "QTR has been updated" with Reload / Later / What's New. It only appears
+while the window is focused and the page is quiet (nothing being typed, no dialog open). Later hides it for 4 hours, or
+until a newer build; What's New opens https://qtr.ai/releasenotes and the alert returns when you come back to the window.
+Reload asks the page to reload, and the page waits for any unsaved note or desk change first. This relies on the page
+seeing `window.qtrDesktop.updateAlertsNative`; the bridge is `webUpdateReady`, `reportPromptQuiet`, `onReloadRequested`,
+`onCheckWebUpdate` and `webCheckResult`. The old `onUpdateReady` and `restartToUpdate` are gone, so no page draws its own slip here.
 
 Changes to the Mac app itself ship through auto-update (electron-updater, GitHub Releases on `qtr-ai/qtr-mac`):
-the app checks at launch and every 4 hours, downloads quietly, then the desk shows "A new version of QTR is ready"
-with Restart to update / Later (a plain Mac alert if the web build predates that slip). It also installs on quit.
-App menu → Check for Updates… checks by hand.
+the app checks at launch and every 4 hours, downloads quietly, then shows the same kind of alert, "A new version of QTR is ready"
+with Restart to update / Later / What's New. It also installs on quit. Both kinds share one prompt, so only one alert shows at a time
+(`promptState.js`, covered by `npm test`).
+App menu → Check for Updates… checks both by hand (asking the page for up to 5 seconds) and says "You're up to date"
+with `QTR <version>, web <build>` when nothing is new. App menu → What's New… opens the release notes. In QTR Dev
+(or any unpackaged run) the app-update check is skipped; the web part still works.
 
 Restart to update shows an "Updating QTR" notification, quits, and Squirrel's ShipIt installs the new version and
 reopens QTR by itself, which takes a minute or two. Opening QTR during that time would make ShipIt abort the install,
